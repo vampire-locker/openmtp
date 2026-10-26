@@ -1,11 +1,11 @@
+import { GRID_ROW_HEIGHT, GRID_ITEM_WIDTH } from '../utils/virtualWindow';
 import { mixins } from '../../../styles/js';
 
 export const styles = (theme) => ({
   wrapper: {},
   itemWrapper: {
-    float: `left`,
-    width: 100,
-    height: 137,
+    width: GRID_ITEM_WIDTH,
+    height: GRID_ROW_HEIGHT,
   },
   itemCheckBox: {
     display: `none`,

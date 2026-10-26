@@ -13,11 +13,15 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { withStyles } from '@material-ui/core/styles';
 import { ipcRenderer, shell } from 'electron';
-import lodashSortBy from 'lodash/sortBy';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import IconButton from '@material-ui/core/IconButton';
 import Tooltip from '@material-ui/core/Tooltip';
+import {
+  createDirectorySorter,
+  createSelectedPaths,
+  selectedNodeInSort,
+} from '../utils/directoryView';
 import { styles } from '../styles/FileExplorer';
 import {
   TextFieldEdit as TextFieldEditDialog,
@@ -541,75 +545,26 @@ class FileExplorer extends Component {
     );
   }
 
+  selectedPaths = createSelectedPaths();
+
+  sortDirectory = createDirectorySorter((args) =>
+    this._lodashSortConstraints(args)
+  );
+
+  _handleVirtualWindow = (virtualWindow) => {
+    this.virtualWindow = virtualWindow;
+  };
+
   lastSelectedNode = (nodes, selected) => {
-    let _return = {
-      index: -1,
-      item: [],
-    };
+    const index = nodes.findIndex(
+      (item) => item.path === selected?.[selected.length - 1]
+    );
 
-    nodes.filter((item, index) => {
-      if (
-        undefinedOrNull(selected) ||
-        !isArray(selected) ||
-        selected.length < 1
-      ) {
-        return null;
-      }
-
-      if (selected[selected.length - 1] !== item.path) {
-        return null;
-      }
-
-      _return = {
-        index,
-        item,
-      };
-
-      return _return;
-    });
-
-    return _return;
+    return { index, item: index < 0 ? [] : nodes[index] };
   };
 
   lastSelectedNodeOfTableSort = (nodes, selected, reverse = false) => {
-    let _return = {
-      index: -1,
-      item: [],
-    };
-
-    nodes.filter((item, index) => {
-      if (
-        undefinedOrNull(selected) ||
-        !isArray(selected) ||
-        selected.length < 1
-      ) {
-        return null;
-      }
-
-      for (let i = 0; i < selected.length; i += 1) {
-        if (selected[i] === item.path) {
-          if (reverse) {
-            if (_return.index < 0) {
-              _return = {
-                index,
-                item,
-              };
-
-              return _return;
-            }
-          } else {
-            _return = {
-              index,
-              item,
-            };
-          }
-        }
-      }
-
-      return _return;
-    });
-
-    return _return;
+    return selectedNodeInSort(nodes, this.selectedPaths(selected), reverse);
   };
 
   /* activate actions using keyboard */
@@ -1879,6 +1834,11 @@ class FileExplorer extends Component {
     }
 
     actionCreateTableClick({ selected: newSelected }, deviceType);
+
+    if (event?.type === 'keydown') {
+      event.preventDefault();
+      this.virtualWindow?.scrollToPath(path);
+    }
   };
 
   _handleTableDoubleClick = (item, deviceType) => {
@@ -1910,44 +1870,10 @@ class FileExplorer extends Component {
     );
   };
 
-  tableSort = ({ ...args }) => {
+  tableSort = ({ nodes, order, orderBy }) => {
     const { showDirectoriesFirst } = this.props;
-    const { nodes, order, orderBy } = args;
 
-    if (typeof nodes === 'undefined' || !nodes.length < 0) {
-      return [];
-    }
-
-    let _sortedNode = [];
-
-    if (order === 'asc') {
-      _sortedNode = lodashSortBy(nodes, [
-        (value) => this._lodashSortConstraints({ value, orderBy }),
-      ]);
-    } else {
-      _sortedNode = lodashSortBy(nodes, [
-        (value) => this._lodashSortConstraints({ value, orderBy }),
-      ]).reverse();
-    }
-
-    const _folders = [];
-    const _files = [];
-
-    if (showDirectoriesFirst) {
-      _sortedNode.forEach((a) => {
-        if (a.isFolder) {
-          _folders.push(a);
-
-          return a;
-        }
-
-        _files.push(a);
-      });
-
-      _sortedNode = [..._folders, ..._files];
-    }
-
-    return _sortedNode;
+    return this.sortDirectory(nodes, order, orderBy, showDirectoriesFirst);
   };
 
   _lodashSortConstraints = ({ value, orderBy }) => {
@@ -2165,6 +2091,7 @@ class FileExplorer extends Component {
           fileTransferClipboard={fileTransferClipboard}
           mtpDevice={mtpDevice}
           filesDrag={filesDrag}
+          onVirtualWindow={this._handleVirtualWindow}
           tableSort={this.tableSort}
           isStatusBarEnabled={isStatusBarEnabled}
           directoryGeneratedTime={directoryGeneratedTime}

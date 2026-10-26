@@ -301,6 +301,7 @@ class FileExplorerBodyRender extends PureComponent {
         square
       >
         <div
+          data-file-explorer-scroll
           tabIndex={-1}
           id={this.fileExplorerBodyWrapperId}
           className={classNames(styles.tableWrapper, {

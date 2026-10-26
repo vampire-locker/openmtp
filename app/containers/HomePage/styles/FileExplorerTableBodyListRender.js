@@ -1,3 +1,5 @@
+import { LIST_ROW_HEIGHT } from '../utils/virtualWindow';
+
 export const tableCellFileExplorerTableRowsRender = {
   borderBottom: `unset`,
   [`&.checkboxCell`]: {
@@ -32,7 +34,11 @@ export const styles = (_) => {
     tableRowSelected: {
       backgroundColor: 'rgba(41, 121, 255, 0.15) !important',
     },
-    tableCell: tableCellFileExplorerTableRowsRender,
+    tableCell: {
+      ...tableCellFileExplorerTableRowsRender,
+      height: LIST_ROW_HEIGHT,
+      boxSizing: 'border-box',
+    },
     fileTypeIconWrapper: {
       paddingTop: 5,
       paddingBottom: 5,

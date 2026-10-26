@@ -7,15 +7,11 @@ import FileExplorerTableEmptyRowRender from './FileExplorerTableBodyEmptyRender'
 import FileExplorerTableBodyGridWrapperRender from './FileExplorerTableBodyGridWrapperRender';
 import FileExplorerTableBodyListWrapperRender from './FileExplorerTableBodyListWrapperRender';
 import { styles } from '../styles/FileExplorerTableBodyRender';
+import { createSelectedPaths } from '../utils/directoryView';
 import { DEVICE_TYPE, FILE_EXPLORER_VIEW_TYPE } from '../../../enums';
 
 class FileExplorerTableBodyRender extends PureComponent {
-  isSelected = (path) => {
-    const { directoryLists, deviceType } = this.props;
-    const _directoryLists = directoryLists[deviceType].queue.selected;
-
-    return _directoryLists.indexOf(path) !== -1;
-  };
+  selectedPaths = createSelectedPaths();
 
   ListingSwitcher = (type = FILE_EXPLORER_VIEW_TYPE.grid) => {
     const { deviceType, directoryLists, tableSort } = this.props;
@@ -36,7 +32,9 @@ class FileExplorerTableBodyRender extends PureComponent {
               orderBy,
             })}
             _eventTarget={_eventTarget}
-            isSelected={this.isSelected}
+            selectedPaths={this.selectedPaths(
+              directoryLists[deviceType].queue.selected
+            )}
           />
         );
 
@@ -51,7 +49,9 @@ class FileExplorerTableBodyRender extends PureComponent {
               orderBy,
             })}
             _eventTarget={_eventTarget}
-            isSelected={this.isSelected}
+            selectedPaths={this.selectedPaths(
+              directoryLists[deviceType].queue.selected
+            )}
           />
         );
     }

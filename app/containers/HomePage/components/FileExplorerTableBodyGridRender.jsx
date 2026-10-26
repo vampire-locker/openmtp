@@ -91,6 +91,10 @@ class FileExplorerTableBodyGridRender extends PureComponent {
 
     return (
       <div
+        data-file-path={item.path}
+        role="checkbox"
+        aria-checked={isSelected}
+        tabIndex={-1}
         draggable="true"
         className={classNames(styles.itemWrapper, {
           [styles.itemSelected]: isSelected,

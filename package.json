@@ -4,6 +4,8 @@
   "version": "3.3.0",
   "description": "OpenMTP | Android File Transfer for macOS",
   "scripts": {
+    "test:file-explorer": "node tests/file-explorer/unit.js",
+    "test:file-explorer:browser": "node tests/file-explorer/run-browser.js",
     "build": "yarn lint && concurrently \"yarn build-main\" \"yarn build-renderer\"",
     "build-no-verify": "concurrently \"yarn build-main\" \"yarn build-renderer\"",
     "build-dll": "cross-env NODE_ENV=development webpack --config ./webpack/config.renderer.dev.dll.babel.js --color",
