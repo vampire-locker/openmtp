@@ -672,40 +672,45 @@ export function listDirectory(
             return;
           }
 
-          const { error, stderr, data } =
-            await fileExplorerController.listFiles({
-              deviceType,
-              filePath,
-              ignoreHidden,
-              storageId,
-            });
+          dispatch(actionSetMtpStatus({ isLoading: true }));
+          try {
+            const { error, stderr, data } =
+              await fileExplorerController.listFiles({
+                deviceType,
+                filePath,
+                ignoreHidden,
+                storageId,
+              });
 
-          dispatch(
-            churnMtpBuffer({
-              deviceType,
-              error,
-              stderr,
-              data,
-              mtpMode,
-              onSuccess: ({ error, stderr, data }) => {
-                dispatch(actionListDirectory(data, deviceType), getState);
-                dispatch(
-                  actionSetSelectedDirLists({ selected: [] }, deviceType)
-                );
-                dispatch(setCurrentBrowsePath(filePath, deviceType));
+            await dispatch(
+              churnMtpBuffer({
+                deviceType,
+                error,
+                stderr,
+                data,
+                mtpMode,
+                onSuccess: ({ error, stderr, data }) => {
+                  dispatch(actionListDirectory(data, deviceType), getState);
+                  dispatch(
+                    actionSetSelectedDirLists({ selected: [] }, deviceType)
+                  );
+                  dispatch(setCurrentBrowsePath(filePath, deviceType));
 
-                if (onSuccess) {
-                  onSuccess({ error, stderr, data });
-                }
-              },
+                  if (onSuccess) {
+                    onSuccess({ error, stderr, data });
+                  }
+                },
 
-              onError: ({ error, stderr, data }) => {
-                if (onError) {
-                  onError({ error, stderr, data });
-                }
-              },
-            })
-          );
+                onError: ({ error, stderr, data }) => {
+                  if (onError) {
+                    onError({ error, stderr, data });
+                  }
+                },
+              })
+            );
+          } finally {
+            dispatch(actionSetMtpStatus({ isLoading: false }));
+          }
         };
 
       default:

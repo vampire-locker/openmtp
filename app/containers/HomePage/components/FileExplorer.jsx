@@ -533,8 +533,11 @@ class FileExplorer extends Component {
   };
 
   _handleListDirectory({ ...args }) {
-    const { actionCreateListDirectory, hideHiddenFiles } = this.props;
+    const { actionCreateListDirectory, hideHiddenFiles, mtpDevice } =
+      this.props;
     const { path, deviceType } = args;
+
+    if (deviceType === DEVICE_TYPE.mtp && mtpDevice.isLoading) return;
 
     actionCreateListDirectory(
       {
@@ -595,6 +598,12 @@ class FileExplorer extends Component {
     let navigationInReverse = false;
 
     if (_focussedFileExplorerDeviceType !== deviceType) {
+      return null;
+    }
+
+    if (deviceType === DEVICE_TYPE.mtp && mtpDevice.isLoading) {
+      event?.preventDefault();
+
       return null;
     }
 

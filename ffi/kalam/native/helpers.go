@@ -132,6 +132,11 @@ func _renameFile(storageId uint32, fileProp mtpx.FileProp, newFileName string) (
 }
 
 func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []*mtpx.FileInfo, err error) {
+	// Generic recursive callers keep their existing implementation.
+	if !recursive && !skipDisallowedFiles {
+		return readDirectory(storageId, fullPath, skipHiddenFiles)
+	}
+
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
 		return []*mtpx.FileInfo{}, err
 	}
@@ -184,20 +189,6 @@ func _dispose() error {
 	}
 
 	mtpx.Dispose(container.dev)
-
-	return nil
-}
-
-func lockMtp() error {
-	if container.locked {
-		return fmt.Errorf("ErrorMtpLockExists")
-	}
-
-	container.locked = true
-
-	defer func() {
-		container.locked = false
-	}()
 
 	return nil
 }

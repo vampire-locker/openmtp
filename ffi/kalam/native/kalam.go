@@ -22,11 +22,8 @@ var container deviceContainer
 func Initialize(onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	_, err := _initialize(mtpx.Init{DebugMode: false})
 	if err != nil {
@@ -56,11 +53,8 @@ func Initialize(onDonePtr *C.on_cb_result_t) {
 func FetchDeviceInfo(onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	dInfo, err := _fetchDeviceInfo()
 	if err != nil {
@@ -83,11 +77,8 @@ func FetchDeviceInfo(onDonePtr *C.on_cb_result_t) {
 func FetchStorages(onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	_sendFetchStorages(true, sendToJsOnDonePtr)
 }
@@ -117,11 +108,8 @@ func _sendFetchStorages(retry bool, onDonePtr *send_to_js.SendCbResult) {
 func MakeDirectory(makeDirectoryInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := MakeDirectoryInput{}
 
@@ -146,11 +134,8 @@ func MakeDirectory(makeDirectoryInputJson *C.char, onDonePtr *C.on_cb_result_t) 
 func FileExists(fileExistsInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := FileExistsInput{}
 
@@ -183,11 +168,8 @@ func FileExists(fileExistsInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 func DeleteFile(deleteFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := DeleteFileInput{}
 
@@ -220,11 +202,8 @@ func DeleteFile(deleteFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 func RenameFile(renameFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := RenameFileInput{}
 
@@ -254,11 +233,8 @@ func RenameFile(renameFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 func Walk(walkInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := WalkInput{}
 
@@ -286,11 +262,8 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 	sendToJsOnProgressPtr := (*send_to_js.SendCbResult)(onProgressPtr)
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := UploadFilesInput{}
 
@@ -374,11 +347,8 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 	sendToJsOnProgressPtr := (*send_to_js.SendCbResult)(onProgressPtr)
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	i := DownloadFilesInput{}
 
@@ -459,11 +429,8 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 func Dispose(onDonePtr *C.on_cb_result_t) {
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
-	if err := lockMtp(); err != nil {
-		send_to_js.SendError(sendToJsOnDonePtr, err)
-
-		return
-	}
+	lockMtp()
+	defer unlockMtp()
 
 	if err := _dispose(); err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, err)

@@ -304,7 +304,7 @@ for await (const [, bottle] of Object.entries(chosenBottlesForBuilding)) {
         GOARCH=${bottle.arch} GOOS=${bottle.os} \
         go build \
         -v -a -trimpath \
-        -o ${bottlePath.kalamDylibInBuildDir} -buildmode=c-shared ./*.go
+        -o ${bottlePath.kalamDylibInBuildDir} -buildmode=c-shared .
         )`;
 
   // building kalam_debug_report

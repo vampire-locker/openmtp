@@ -1,6 +1,7 @@
 import React, { PureComponent } from 'react';
 import { withStyles } from '@material-ui/core/styles';
 import Paper from '@material-ui/core/Paper';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import classNames from 'classnames';
 import hotkeys from 'hotkeys-js';
 import FileExplorerTableBodyRender from './FileExplorerTableBodyRender';
@@ -300,7 +301,20 @@ class FileExplorerBodyRender extends PureComponent {
         elevation={0}
         square
       >
+        {deviceType === DEVICE_TYPE.mtp && mtpDevice.isLoading && (
+          <div
+            className={styles.readingOverlay}
+            role="status"
+            aria-live="polite"
+          >
+            <CircularProgress size={28} />
+            <span>
+              Reading phone directory… Large folders may take a moment.
+            </span>
+          </div>
+        )}
         <div
+          aria-busy={deviceType === DEVICE_TYPE.mtp && mtpDevice.isLoading}
           data-file-explorer-scroll
           tabIndex={-1}
           id={this.fileExplorerBodyWrapperId}

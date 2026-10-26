@@ -72,7 +72,7 @@ const Explorer = context.exports.TestExplorer;
 
 Explorer.prototype._createDragIcon = noop;
 
-for (const count of [10000, 50000]) {
+for (const count of process.env.OPENMTP_ONLY_LOADING ? [] : [10000, 50000]) {
   const nodes = Array.from({ length: count }, (_, index) => ({
     path: `/files/${index}`,
     name: `file-${String(index).padStart(5, '0')}.txt`,
@@ -270,4 +270,43 @@ for (const count of [10000, 50000]) {
   }
 
   console.info(`PASS controller/cache/range: ${count} files`);
+}
+
+// Run only these new guards with OPENMTP_ONLY_LOADING=1 when the earlier
+// large-directory simulation suite has already passed.
+{
+  const deviceType = enums.DEVICE_TYPE.mtp;
+  let reads = 0;
+  let prevented = 0;
+  const props = {
+    deviceType,
+    directoryLists: { [deviceType]: { nodes: [], queue: { selected: [] } } },
+    currentBrowsePath: { [deviceType]: '/DCIM' },
+    focussedFileExplorerDeviceType: { value: deviceType },
+    hideHiddenFiles: { [deviceType]: true },
+    mtpDevice: { isAvailable: true, isLoading: true },
+    actionCreateListDirectory: () => {
+      reads += 1;
+    },
+  };
+  const explorer = new Explorer(props);
+
+  explorer._handleListDirectory({ path: '/DCIM/Camera', deviceType });
+  explorer._handleAcceleratorActivation({
+    type: 'open',
+    data: {
+      deviceType,
+      event: {
+        preventDefault: () => {
+          prevented += 1;
+        },
+      },
+    },
+  });
+  assert.strictEqual(reads, 0);
+  assert.strictEqual(prevented, 1);
+  props.mtpDevice.isLoading = false;
+  explorer._handleListDirectory({ path: '/DCIM/Camera', deviceType });
+  assert.strictEqual(reads, 1);
+  console.info('PASS directory loading guards');
 }
