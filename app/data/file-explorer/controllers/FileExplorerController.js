@@ -307,6 +307,10 @@ class FileExplorerController {
    *
    * @return
    */
+  canCancelTransfer = () => this.repository.canCancelTransfer();
+
+  cancelTransfer = () => this.repository.cancelTransfer();
+
   transferFiles = async ({
     deviceType,
     destination,

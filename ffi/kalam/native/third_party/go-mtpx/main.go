@@ -562,10 +562,17 @@ func DownloadFiles(dev *mtp.Device, storageId uint32, sources []string, destinat
 		})
 }
 
-// DownloadFilesWithWalker allows a transfer-scoped index to resolve source handles.
+// DownloadFilesWithWalker retains the upstream writer/progress implementation,
+// while allowing one transfer-scoped directory index to resolve source handles.
 func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string, destination string,
 	preprocessFiles bool, preprocessCb MtpPreprocessCb, progressCb ProgressCb,
 	walk func(string, WalkCb) (int64, int64, error)) (bulkFilesSent int64, bulkSizeSent int64, err error) {
+	return DownloadFilesWithOptions(dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb, walk, DownloadOptions{})
+}
+
+func DownloadFilesWithOptions(dev *mtp.Device, storageId uint32, sources []string, destination string,
+	preprocessFiles bool, preprocessCb MtpPreprocessCb, progressCb ProgressCb,
+	walk func(string, WalkCb) (int64, int64, error), options DownloadOptions) (bulkFilesSent int64, bulkSizeSent int64, err error) {
 	_destination := fixSlash(destination)
 
 	pInfo := ProgressInfo{
@@ -598,13 +605,19 @@ func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string
 	var totalSize int64 = 0
 
 	var cache = downloadFilesObjectCache{}
-	if preprocessFiles {
+	{ // Always plan for a full capacity check, even when overall progress is hidden.
 		for _, source := range sources {
+			if err := options.checkpoint(); err != nil {
+				return 0, 0, err
+			}
 			_source := fixSlash(source)
 
 			_totalFiles, _totalDirectories, err := walk(_source,
 				func(objectId uint32, fi *FileInfo, err error) error {
 					if err != nil {
+						return err
+					}
+					if err := options.checkpoint(); err != nil {
 						return err
 					}
 
@@ -629,11 +642,11 @@ func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string
 						return nil
 					}
 
-					if err = preprocessCb(fi, nil); err != nil {
-						return err
+					if preprocessFiles {
+						if err = preprocessCb(fi, nil); err != nil {
+							return err
+						}
 					}
-
-					totalSize += fi.Size
 
 					return nil
 				})
@@ -647,6 +660,26 @@ func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string
 		}
 	}
 
+	// Deduplicated destinations determine actual disk demand; do not count
+	// an overlapping selection twice or assume overwritten data frees space.
+	totalFiles, totalDirectories, totalSize = 0, 0, 0
+	for _, item := range cache {
+		if item.fileInfo.IsDir {
+			totalDirectories++
+			continue
+		}
+		if item.fileInfo.Size < 0 || item.fileInfo.Size > int64(^uint64(0)>>1)-totalSize {
+			return 0, 0, fmt.Errorf("invalid or overflowing download size")
+		}
+		totalFiles++
+		totalSize += item.fileInfo.Size
+	}
+	if err := options.checkpoint(); err != nil {
+		return 0, 0, err
+	}
+	if err := options.checkSpace(_destination, totalSize); err != nil {
+		return 0, 0, err
+	}
 	pInfo.TotalFiles = totalFiles
 	pInfo.TotalDirectories = totalDirectories
 	pInfo.BulkFileSize.Total = totalSize
@@ -656,10 +689,14 @@ func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string
 		bulkSizeSent:  bulkSizeSent,
 		totalFiles:    totalFiles,
 		totalSize:     totalSize,
+		options:       options,
 	}
 
 	if len(cache) > 0 {
 		for _, c := range cache {
+			if err := options.checkpoint(); err != nil {
+				return dfProps.bulkFilesSent, dfProps.bulkSizeSent, err
+			}
 			dfProps.sourceParentPath = c.sourceParentPath
 			dfProps.destinationFileParentPath = c.destinationFileParentPath
 			dfProps.destinationFilePath = c.destinationFilePath
@@ -668,31 +705,6 @@ func DownloadFilesWithWalker(dev *mtp.Device, storageId uint32, sources []string
 
 			if err != nil {
 				return processDownloadFilesError(dfProps, err)
-			}
-		}
-	} else {
-		for _, source := range sources {
-			_source := fixSlash(source)
-
-			_, _, wErr := walk(_source,
-				func(objectId uint32, fi *FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-
-					sourceParentPath := filepath.Dir(_source)
-					destinationFileParentPath, destinationFilePath := mapSourcePathToDestinationPath(
-						fi.FullPath, sourceParentPath, _destination,
-					)
-					dfProps.sourceParentPath = sourceParentPath
-					dfProps.destinationFileParentPath = destinationFileParentPath
-					dfProps.destinationFilePath = destinationFilePath
-
-					return processDownloadFiles(dev, &pInfo, fi, progressCb, dfProps)
-				})
-
-			if wErr != nil {
-				return processDownloadFilesError(dfProps, wErr)
 			}
 		}
 	}

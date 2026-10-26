@@ -341,6 +341,12 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 	send_to_js.SendTransferFilesDone(sendToJsOnDonePtr)
 }
 
+//export CancelDownload
+func CancelDownload(transferID *C.char) {
+	// Do not acquire the USB-operation lock: the active transfer holds it.
+	requestDownloadCancel(C.GoString(transferID))
+}
+
 //export DownloadFiles
 func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, onDonePtr *C.on_cb_result_t) {
 	sendToJsOnPreprocessPtr := (*send_to_js.SendCbResult)(onPreprocessPtr)
@@ -359,6 +365,9 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 
 		return
 	}
+
+	control := beginDownload(i.TransferID)
+	defer endDownload(control)
 
 	// Keep callbacks synchronous and throttled. Sharing pInterface with a
 	// goroutine raced with progress writes and could emit stale events after done.

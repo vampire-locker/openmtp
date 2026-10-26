@@ -38,7 +38,12 @@ async function run() {
       mode: 'development',
       devtool: false,
       plugins: [new webpack.ProvidePlugin({ process: 'process/browser' })],
-      entry: path.join(__dirname, 'browser.jsx'),
+      entry: path.join(
+        __dirname,
+        process.env.OPENMTP_BROWSER_TEST === 'safety'
+          ? 'safety.jsx'
+          : 'browser.jsx'
+      ),
       output: { path: temporary, filename: 'test.js' },
       resolve: {
         extensions: ['.js', '.jsx'],

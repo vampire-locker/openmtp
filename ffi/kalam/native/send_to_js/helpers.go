@@ -1,6 +1,7 @@
 package send_to_js
 
 import (
+	"errors"
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
@@ -10,6 +11,18 @@ import (
 
 // process errors
 func processError(e error) (errorType ErrorType, errorMsg string) {
+	if errors.Is(e, mtpx.ErrDownloadCancelled) {
+		return ErrorTransferCancelled, "Copy stopped. Completed files were kept. Refresh the phone connection before starting another transfer."
+	}
+	var partial *mtpx.IncompleteDownloadError
+	if errors.As(e, &partial) {
+		return ErrorDownloadInterrupted, e.Error()
+	}
+	var space *mtpx.InsufficientSpaceError
+	if errors.As(e, &space) {
+		return ErrorInsufficientLocalSpace, e.Error()
+	}
+
 	switch v := e.(type) {
 	case mtp.RCError:
 		if v == 0x2009 {

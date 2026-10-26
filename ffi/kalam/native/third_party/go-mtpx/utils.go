@@ -259,5 +259,5 @@ func isHiddenFile(filename string) bool {
 	return len(filename) > 0 && filename[0:1] == "."
 }
 
-// IsDisallowedFile exposes the existing download filter.
+// IsDisallowedFile exposes the same filter used by the upstream download path.
 func IsDisallowedFile(name string) bool { return isDisallowedFiles(name) }

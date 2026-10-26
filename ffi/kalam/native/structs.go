@@ -52,6 +52,7 @@ type UploadFilesInput struct {
 }
 
 type DownloadFilesInput struct {
+	TransferID      string   `json:"transferId"`
 	StorageId       uint32   `json:"storageId"`
 	Sources         []string `json:"sources"`
 	Destination     string   `json:"destination"`

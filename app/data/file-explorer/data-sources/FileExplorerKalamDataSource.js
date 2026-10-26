@@ -41,6 +41,14 @@ export class FileExplorerKalamDataSource {
    *
    * @return {Promise<{data: object, error: string|null, stderr: string|null}>}
    */
+  canCancelTransfer() {
+    return this.kalamFfi.canCancelTransfer();
+  }
+
+  cancelTransfer() {
+    return this.kalamFfi.cancelTransfer();
+  }
+
   async initialize() {
     try {
       return this.kalamFfi.initialize();

@@ -14,6 +14,8 @@ const source = babel.transformFileSync(
 ).code;
 let simulate;
 let released;
+let cancelId;
+let legacy = false;
 const directions = { download: 'download', upload: 'upload' };
 const koffi = {
   proto: () => 'callback',
@@ -22,7 +24,19 @@ const koffi = {
   unregister: () => {
     released += 1;
   },
-  load: () => ({ func: () => ({ async: (...args) => simulate(...args) }) }),
+  load: () => ({
+    func: (signature) => {
+      if (signature.includes('CancelDownload')) {
+        if (legacy) throw new Error('symbol not found');
+
+        return (id) => {
+          cancelId = id;
+        };
+      }
+
+      return { async: (...args) => simulate(...args) };
+    },
+  }),
 };
 const context = {
   exports: {},
@@ -91,8 +105,52 @@ async function run() {
     assert.strictEqual(released, 3, scenario);
   }
 
+  const transfer = new context.exports.Kalam();
+  let complete;
+  let transferId;
+  let stopped = 0;
+
+  simulate = (raw, preprocess, progress, done, finish) => {
+    transferId = JSON.parse(raw).transferId;
+    complete = () => {
+      done(
+        JSON.stringify({
+          error: 'Stopped',
+          errorType: 'ErrorTransferCancelled',
+          data: null,
+        })
+      );
+      finish(null);
+    };
+  };
+
+  const pending = transfer.transferFiles({
+    direction: directions.download,
+    storageId: 65537,
+    sources: ['/a.jpg'],
+    destination: '/unused',
+    preprocessFiles: false,
+    onPreprocess: () => {},
+    onProgress: () => {},
+    onError: () => {
+      stopped += 1;
+    },
+    onCompleted: () => {
+      throw new Error('cancel marked completed');
+    },
+  });
+
+  assert(transfer.canCancelTransfer());
+  assert(transfer.cancelTransfer());
+  assert.strictEqual(cancelId, transferId);
+  complete();
+  await pending;
+  assert.strictEqual(stopped, 1);
+  assert.strictEqual(transfer.cancelTransfer(), false);
+  legacy = true;
+  assert.strictEqual(new context.exports.Kalam().canCancelTransfer(), false);
   console.info(
-    'PASS transfer success/error callbacks and FFI failure reporting'
+    'PASS transfer error reporting, active/finished cancellation and legacy capability detection'
   );
 }
 

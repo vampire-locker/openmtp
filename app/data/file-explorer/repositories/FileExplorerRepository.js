@@ -17,6 +17,17 @@ export class FileExplorerRepository {
    *
    * @return {Promise<{data: object, error: string|null, stderr: string|null}>}
    */
+  canCancelTransfer() {
+    return (
+      getMtpModeSetting() === MTP_MODE.kalam &&
+      this.kalamMtpDataSource.canCancelTransfer()
+    );
+  }
+
+  cancelTransfer() {
+    return this.canCancelTransfer() && this.kalamMtpDataSource.cancelTransfer();
+  }
+
   async initialize({ deviceType }) {
     const selectedMtpMode = getMtpModeSetting();
 

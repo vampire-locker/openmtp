@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -274,35 +275,15 @@ func handleMakeFile(dev *mtp.Device, storageId uint32, obj *mtp.ObjectInfo, fInf
 }
 
 // helper function to create a local file
-func handleMakeLocalFile(dev *mtp.Device, fi *FileInfo, destination string, progressCb SizeProgressCb) error {
-	f, err := os.Create(destination)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var totalSent int64 = 0
-	err = dev.GetObject(fi.ObjectId, f, func(sent int64) error {
-		if err := progressCb(fi.Size, sent, fi.ObjectId, err); err != nil {
-			return err
-		}
-
-		totalSent = sent
-
-		return nil
+func handleMakeLocalFile(dev *mtp.Device, fi *FileInfo, destination string, options DownloadOptions, progressCb SizeProgressCb) error {
+	return writeDownloadAtomically(fi, destination, options, func(writer io.Writer) error {
+		return dev.GetObject(fi.ObjectId, writer, func(sent int64) error {
+			if err := options.checkpoint(); err != nil {
+				return err
+			}
+			return progressCb(fi.Size, sent, fi.ObjectId, nil)
+		})
 	})
-	if err != nil {
-		return err
-	}
-
-	// fix the incorrect sent size
-	if totalSent < fi.Size {
-		if err := progressCb(fi.Size, fi.Size, fi.ObjectId, err); err != nil {
-			return err
-		}
-	}
-
-	return restoreLocalFileTimestamp(destination, fi.ModTime)
 }
 
 // helper function to fetch the contents inside a directory
@@ -490,15 +471,12 @@ func processDownloadFiles(dev *mtp.Device, pInfo *ProgressInfo, fi *FileInfo, pr
 		}
 	}
 
-	// keep track of [bulkFilesSent]
-	dfProps.bulkFilesSent += 1
-
 	pInfo.LatestSentTime = time.Now()
 	pInfo.FileInfo = fi
 
 	// create the local file
 	var prevSentSize int64 = 0
-	err = handleMakeLocalFile(dev, fi, dfProps.destinationFilePath,
+	err = handleMakeLocalFile(dev, fi, dfProps.destinationFilePath, dfProps.options,
 		func(total, sent int64, _ uint32, err error) error {
 			if err != nil {
 				return err
@@ -528,6 +506,7 @@ func processDownloadFiles(dev *mtp.Device, pInfo *ProgressInfo, fi *FileInfo, pr
 		return err
 	}
 
+	dfProps.bulkFilesSent++
 	pInfo.FilesSent = dfProps.bulkFilesSent
 	pInfo.FilesSentProgress = Percent(float32(dfProps.bulkFilesSent), float32(dfProps.totalFiles))
 
@@ -535,6 +514,11 @@ func processDownloadFiles(dev *mtp.Device, pInfo *ProgressInfo, fi *FileInfo, pr
 }
 
 func processDownloadFilesError(dfProps *processDownloadFilesProps, err error) (bulkFilesSent, bulkSizeSent int64, error error) {
+	var space *InsufficientSpaceError
+	var partial *IncompleteDownloadError
+	if errors.Is(err, ErrDownloadCancelled) || errors.As(err, &space) || errors.As(err, &partial) {
+		return dfProps.bulkFilesSent, dfProps.bulkSizeSent, err
+	}
 	if err != nil {
 		switch err.(type) {
 		case InvalidPathError:
@@ -559,7 +543,7 @@ func processDownloadFilesError(dfProps *processDownloadFilesProps, err error) (b
 	return bulkFilesSent, bulkSizeSent, err
 }
 
-//Restore modified timestamp of the file
+// Restore modified timestamp of the file
 func restoreLocalFileTimestamp(destination string, modTime time.Time) (err error) {
 	currentTime := time.Now().Local()
 

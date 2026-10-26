@@ -41,7 +41,7 @@ func readDirectoryByHandle(storageID uint32, fullPath string, skipHidden bool, h
 		return []*mtpx.FileInfo{folder}, nil
 	}
 	if folder.ObjectId != mtpx.ParentObjectId && directory.Supported(container.deviceInfo) {
-		files, err := directory.List(dev, storageID, folder.ObjectId, fullPath, skipHidden)
+		files, err := directory.ListWithCheck(dev, storageID, folder.ObjectId, fullPath, skipHidden, downloadCheckpoint)
 		if err == nil {
 			return files, nil
 		}

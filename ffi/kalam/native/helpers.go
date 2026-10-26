@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
@@ -133,7 +134,8 @@ func _renameFile(storageId uint32, fileProp mtpx.FileProp, newFileName string) (
 }
 
 func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []*mtpx.FileInfo, err error) {
-	// Generic recursive callers keep their existing implementation.
+	// Generic recursive callers keep their existing implementation. The UI
+	// uses this non-recursive route to request only display metadata.
 	if !recursive && !skipDisallowedFiles {
 		return readDirectory(storageId, fullPath, skipHiddenFiles)
 	}
@@ -172,6 +174,22 @@ func _uploadFiles(storageId uint32, sources []string, destination string, prepro
 }
 
 func _downloadFiles(storageId uint32, sources []string, destination string, preprocessFiles bool, preprocessCb mtpx.MtpPreprocessCb, progressCb mtpx.ProgressCb) (err error) {
+	defer func() {
+		var partial *mtpx.IncompleteDownloadError
+		if errors.Is(err, mtpx.ErrDownloadCancelled) || errors.As(err, &partial) {
+			// An aborted object read leaves unread protocol data. Discard that session,
+			// rather than issuing another request on a desynchronized connection.
+			if container.dev != nil {
+				container.dev.Timeout = 1000
+				container.dev.Close()
+			}
+			container.dev = nil
+			container.deviceInfo = nil
+		}
+	}()
+	if err := downloadCheckpoint(); err != nil {
+		return err
+	}
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
 		return err
 	}
@@ -179,12 +197,9 @@ func _downloadFiles(storageId uint32, sources []string, destination string, prep
 	walker := directory.NewDownloadWalker(func(parent string, handle uint32) ([]*mtpx.FileInfo, error) {
 		return readDirectoryByHandle(storageId, parent, false, handle)
 	}, mtpx.IsDisallowedFile)
-	_, _, err = mtpx.DownloadFilesWithWalker(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb, walker.Walk)
-	if err != nil {
-		return err
-	}
+	_, _, err = mtpx.DownloadFilesWithOptions(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb, walker.Walk, mtpx.DownloadOptions{Check: downloadCheckpoint})
 
-	return nil
+	return err
 }
 
 func _dispose() error {

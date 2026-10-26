@@ -96,6 +96,7 @@ type FileProp struct {
 }
 
 type processDownloadFilesProps struct {
+	options                                                          DownloadOptions
 	destinationFileParentPath, destinationFilePath, sourceParentPath string
 	bulkFilesSent, bulkSizeSent, totalFiles, totalSize               int64
 }

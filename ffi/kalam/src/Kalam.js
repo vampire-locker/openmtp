@@ -5,6 +5,8 @@ import { undefinedOrNull } from '../../../app/utils/funcs';
 import { checkIf } from '../../../app/utils/checkIf';
 import { FILE_TRANSFER_DIRECTION } from '../../../app/enums';
 
+let transferSequence = 0;
+
 export class Kalam {
   constructor() {
     this.libPath = kalamLibPath;
@@ -360,6 +362,25 @@ export class Kalam {
     });
   }
 
+  canCancelTransfer() {
+    if (this.cancelDownloadFn === undefined) {
+      try {
+        this.cancelDownloadFn = this.lib.func('void CancelDownload(char*)');
+      } catch (_) {
+        this.cancelDownloadFn = null;
+      }
+    }
+
+    return Boolean(this.cancelDownloadFn);
+  }
+
+  cancelTransfer() {
+    if (!this.activeDownloadId || !this.canCancelTransfer()) return false;
+    this.cancelDownloadFn(this.activeDownloadId);
+
+    return true;
+  }
+
   async transferFiles({
     direction,
     storageId,
@@ -381,11 +402,21 @@ export class Kalam {
     checkIf(onProgress, 'function');
     checkIf(onCompleted, 'function');
 
+    transferSequence += 1;
+    const transferId = `${Date.now()}-${transferSequence}`;
+
+    if (direction === FILE_TRANSFER_DIRECTION.download)
+      this.activeDownloadId = transferId;
+    const releaseControl = () => {
+      if (this.activeDownloadId === transferId) this.activeDownloadId = null;
+    };
+
     return new Promise((resolve) => {
       let settled = false;
       const fail = ({ error, stderr = null }) => {
         if (settled) return;
         settled = true;
+        releaseControl();
         onError({ error, stderr, data: null });
         resolve({ error, stderr, data: null });
       };
@@ -430,6 +461,7 @@ export class Kalam {
           if (!undefinedOrNull(outcome.error)) return fail(outcome);
           if (settled) return;
           settled = true;
+          releaseControl();
           onCompleted();
 
           return resolve(outcome);
@@ -462,6 +494,7 @@ export class Kalam {
           sources,
           destination,
           preprocessFiles,
+          transferId,
         };
         const json = JSON.stringify(args);
 

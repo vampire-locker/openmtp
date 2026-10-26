@@ -187,6 +187,7 @@ class FileExplorer extends Component {
 
     this.initialState = {
       togglePasteConfirmDialog: false,
+      transferCancelRequested: false,
       toggleDialog: {
         rename: {
           errors: {
@@ -254,8 +255,15 @@ class FileExplorer extends Component {
   componentWillReceiveProps({
     directoryLists: nextDirectoryLists,
     showDirectoriesFirst: nextShowDirectoriesFirst,
+    fileTransferProgess: nextTransferProgress,
   }) {
     const { deviceType, directoryLists, showDirectoriesFirst } = this.props;
+
+    const { transferCancelRequested } = this.state;
+
+    if (!nextTransferProgress.toggle && transferCancelRequested) {
+      this.setState({ transferCancelRequested: false });
+    }
 
     const { nodes: prevDirectoryNodes } = directoryLists[deviceType];
     const { nodes: nextDirectoryNodes } = nextDirectoryLists[deviceType];
@@ -1347,6 +1355,15 @@ class FileExplorer extends Component {
     });
   };
 
+  _handleCancelTransfer = () => {
+    const { transferCancelRequested } = this.state;
+
+    if (transferCancelRequested) return;
+    if (fileExplorerController.cancelTransfer()) {
+      this.setState({ transferCancelRequested: true });
+    }
+  };
+
   _handleTogglePasteConfirmDialog = (status) => {
     this.setState({
       togglePasteConfirmDialog: status,
@@ -1934,8 +1951,12 @@ class FileExplorer extends Component {
       isStatusBarEnabled,
       fileTransferClipboard,
     } = this.props;
-    const { toggleDialog, togglePasteConfirmDialog, directoryGeneratedTime } =
-      this.state;
+    const {
+      toggleDialog,
+      togglePasteConfirmDialog,
+      directoryGeneratedTime,
+      transferCancelRequested,
+    } = this.state;
     const { rename, newFolder } = toggleDialog;
     const togglePasteDialog =
       deviceType === DEVICE_TYPE.mtp && fileTransferProgess.toggle;
@@ -1992,9 +2013,16 @@ class FileExplorer extends Component {
           titleText={fileTransferProgess.titleText ?? 'Transferring files...'}
           trigger={togglePasteDialog}
           bottomText={fileTransferProgess.bottomText}
+          canCancel={fileTransferProgess.canCancel}
+          cancelling={transferCancelRequested}
+          onCancel={this._handleCancelTransfer}
           fullWidthDialog
           maxWidthDialog="sm"
-          helpText="If the progress bar freezes while transferring the files, restart the app and reconnect the device. This is a known Android MTP bug."
+          helpText={
+            fileTransferProgess.canCancel
+              ? 'Use Stop copying to end this download safely. Stopping may wait for the current device operation.'
+              : 'If the progress bar freezes while transferring the files, restart the app and reconnect the device. This is a known Android MTP bug.'
+          }
         >
           <div className={styles.socialMediaShareContainer}>
             <Typography className={styles.supportBtnsTitle}>
@@ -2427,6 +2455,11 @@ const mapDispatchToProps = (dispatch, _) =>
 
             analyticsService.sendEvent(EVENT_TYPE.FILE_TRANSFER_STARTED, {});
 
+            const canCancel =
+              deviceType === DEVICE_TYPE.local &&
+              mtpMode === MTP_MODE.kalam &&
+              fileExplorerController.canCancelTransfer();
+
             // on pre process callback for file transfer
             const onPreprocess = ({ fullPath }) => {
               const bodyText1 = `Preparing "${
@@ -2439,6 +2472,7 @@ const mapDispatchToProps = (dispatch, _) =>
                   titleText: `Preparing to copy files to ${DEVICES_LABEL[deviceType]}...`,
                   bottomText: `Files have not been written yet. If file processing is taking too much time, you may disable it from 'Settings' > 'FILE MANAGER' > 'Display overall progress on the file transfer screen'`,
                   toggle: true,
+                  canCancel,
                   values: [
                     {
                       bodyText1,
@@ -2556,6 +2590,7 @@ const mapDispatchToProps = (dispatch, _) =>
                   titleText: `Copying files to ${DEVICES_LABEL[deviceType]}...`,
                   bottomText: null,
                   toggle: true,
+                  canCancel,
                   values: progressInfo,
                 })
               );
@@ -2565,6 +2600,37 @@ const mapDispatchToProps = (dispatch, _) =>
             const onError = ({ error, stderr, data }) => {
               getCurrentWindow().setProgressBar(-1);
               dispatch(clearFileTransfer());
+              if (
+                [
+                  'ErrorTransferCancelled',
+                  'ErrorDownloadInterrupted',
+                  'ErrorInsufficientLocalSpace',
+                ].includes(stderr)
+              ) {
+                if (stderr !== 'ErrorInsufficientLocalSpace') {
+                  dispatch(
+                    actionSetMtpStatus({
+                      isAvailable: false,
+                      isLoading: false,
+                      error: stderr,
+                    })
+                  );
+                }
+
+                dispatch(throwAlert({ message: error }));
+                if (deviceType === DEVICE_TYPE.local) {
+                  dispatch(
+                    listDirectory(
+                      { ...listDirectoryArgs },
+                      deviceType,
+                      getState
+                    )
+                  );
+                }
+
+                return;
+              }
+
               dispatch(
                 churnMtpBuffer({
                   deviceType: DEVICE_TYPE.mtp,

@@ -34,15 +34,29 @@ func Supported(info *mtp.DeviceInfo) bool {
 }
 
 func List(dev Device, storageID, parent uint32, fullPath string, skipHidden bool) ([]*mtpx.FileInfo, error) {
+	return ListWithCheck(dev, storageID, parent, fullPath, skipHidden, nil)
+}
+
+func ListWithCheck(dev Device, storageID, parent uint32, fullPath string, skipHidden bool, check func() error) ([]*mtpx.FileInfo, error) {
 	started := time.Now()
 	datasets := make(map[uint16]*propertyList)
 	// Avoid ALL properties: some Android devices advertise the operation but
 	// reject ALL with Invalid_ObjectPropCode. These five suffice for the UI.
 	for _, property := range []uint16{propertyParent, propertyName, propertyFormat, propertySize, propertyModified} {
+		if check != nil {
+			if err := check(); err != nil {
+				return nil, err
+			}
+		}
 		values := &propertyList{property: property}
 		request := mtp.Container{Code: mtp.OC_MTP_GetObjPropList, Param: []uint32{parent, 0, uint32(property), 0, 1}}
 		phase := time.Now()
 		err := dev.GetData(&request, values)
+		if check != nil {
+			if stopped := check(); stopped != nil {
+				return nil, stopped
+			}
+		}
 		log.Printf("directory bulk property=%04x duration=%s objects=%d error=%v", property, time.Since(phase), len(values.values), err)
 		if err != nil {
 			// Only these capability errors are safe to retry using legacy reads.

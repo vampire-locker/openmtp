@@ -3,6 +3,8 @@ import classnames from 'classnames';
 import { withStyles } from '@material-ui/core/styles';
 import LinearProgress from '@material-ui/core/LinearProgress';
 import Dialog from '@material-ui/core/Dialog';
+import DialogActions from '@material-ui/core/DialogActions';
+import Button from '@material-ui/core/Button';
 import Tooltip from '@material-ui/core/Tooltip';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
@@ -32,6 +34,9 @@ class ProgressBar extends PureComponent {
       helpText,
       children,
       bottomText,
+      canCancel,
+      cancelling,
+      onCancel,
     } = this.props;
 
     checkIf(values, 'array');
@@ -58,8 +63,26 @@ class ProgressBar extends PureComponent {
             )}
           </span>
         </DialogTitle>
+        {canCancel && (
+          <DialogActions>
+            <Button
+              onClick={onCancel}
+              disabled={cancelling}
+              color="secondary"
+              variant="outlined"
+            >
+              {cancelling ? 'Stopping…' : 'Stop copying'}
+            </Button>
+          </DialogActions>
+        )}
 
         <DialogContent>
+          {cancelling && (
+            <DialogContentText role="status">
+              Stopping… waiting for the phone to respond. Completed files will
+              be kept.
+            </DialogContentText>
+          )}
           {values.map((a, index) => {
             return (
               // eslint-disable-next-line react/no-array-index-key
