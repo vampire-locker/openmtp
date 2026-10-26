@@ -382,6 +382,14 @@ export class Kalam {
     checkIf(onCompleted, 'function');
 
     return new Promise((resolve) => {
+      let settled = false;
+      const fail = ({ error, stderr = null }) => {
+        if (settled) return;
+        settled = true;
+        onError({ error, stderr, data: null });
+        resolve({ error, stderr, data: null });
+      };
+
       try {
         const onFfiPreprocessPtr = this.callbackDictionary.onCbResult;
         const rawOnFfiPreprocessPtr = koffi.register((result) => {
@@ -389,12 +397,10 @@ export class Kalam {
           const { error, data, stderr } = this._getData(json);
 
           if (!undefinedOrNull(error)) {
-            onError({ error, data: null, stderr });
-
-            return resolve({ error, stderr, data: null });
+            return fail({ error, stderr });
           }
 
-          if (onPreprocess && data) {
+          if (!settled && onPreprocess && data) {
             const { fullPath, size, name } = data;
 
             onPreprocess({ fullPath, size, name });
@@ -407,12 +413,10 @@ export class Kalam {
           const { error, data, stderr } = this._getData(json);
 
           if (!undefinedOrNull(error)) {
-            onError({ error, data: null, stderr });
-
-            return resolve({ error, stderr, data: null });
+            return fail({ error, stderr });
           }
 
-          if (onProgress && data) {
+          if (!settled && onProgress && data) {
             onProgress({ ...data });
           }
         }, koffi.pointer(onFfiProgressPtr));
@@ -421,11 +425,14 @@ export class Kalam {
         const rawOnDonePtr = koffi.register((result) => {
           const json = JSON.parse(result);
 
-          if (onCompleted) {
-            onCompleted();
-          }
+          const outcome = this._getData(json);
 
-          return resolve(this._getData(json));
+          if (!undefinedOrNull(outcome.error)) return fail(outcome);
+          if (settled) return;
+          settled = true;
+          onCompleted();
+
+          return resolve(outcome);
         }, koffi.pointer(onDonePtr));
 
         let TransferFiles;
@@ -474,7 +481,7 @@ export class Kalam {
                 `Kalam.transferFiles.async - Transfer type: ${direction}`
               );
 
-              return resolve(this._getNapiError(err));
+              return fail(this._getNapiError(err));
             }
           }
         );
@@ -484,7 +491,7 @@ export class Kalam {
           `Kalam.transferFiles.catch - Transfer type: ${direction}`
         );
 
-        return resolve(this._getNapiError(err));
+        return fail(this._getNapiError(err));
       }
     });
   }

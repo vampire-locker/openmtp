@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
+	"kalam/directory"
 	"log"
 )
 
@@ -175,7 +176,10 @@ func _downloadFiles(storageId uint32, sources []string, destination string, prep
 		return err
 	}
 
-	_, _, err = mtpx.DownloadFiles(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb)
+	walker := directory.NewDownloadWalker(func(parent string, handle uint32) ([]*mtpx.FileInfo, error) {
+		return readDirectoryByHandle(storageId, parent, false, handle)
+	}, mtpx.IsDisallowedFile)
+	_, _, err = mtpx.DownloadFilesWithWalker(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb, walker.Walk)
 	if err != nil {
 		return err
 	}

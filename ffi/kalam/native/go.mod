@@ -18,3 +18,6 @@ require (
 ///##### Use a local package
 // replace github.com/ganeshrvel/go-mtpfs vxxxxxx-xxxxxxxxxx
 // with ../go-mtpfs
+
+// Local patch: inject transfer-scoped traversal; keep upstream transfer writes.
+replace github.com/ganeshrvel/go-mtpx => ./third_party/go-mtpx

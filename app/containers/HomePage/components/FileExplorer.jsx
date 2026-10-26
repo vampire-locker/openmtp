@@ -2429,15 +2429,15 @@ const mapDispatchToProps = (dispatch, _) =>
 
             // on pre process callback for file transfer
             const onPreprocess = ({ fullPath }) => {
-              const bodyText1 = `Processing "${
+              const bodyText1 = `Preparing "${
                 springTruncate(fullPath, 45).truncatedText
               }"`;
 
               getCurrentWindow().setProgressBar(0);
               dispatch(
                 setFileTransferProgress({
-                  titleText: `Copying files to ${DEVICES_LABEL[deviceType]}...`,
-                  bottomText: `If file processing is taking too much time, you may disable it from 'Settings' > 'FILE MANAGER' > 'Display overall progress on the file transfer screen'`,
+                  titleText: `Preparing to copy files to ${DEVICES_LABEL[deviceType]}...`,
+                  bottomText: `Files have not been written yet. If file processing is taking too much time, you may disable it from 'Settings' > 'FILE MANAGER' > 'Display overall progress on the file transfer screen'`,
                   toggle: true,
                   values: [
                     {
@@ -2563,6 +2563,8 @@ const mapDispatchToProps = (dispatch, _) =>
 
             // on error callback for file transfer
             const onError = ({ error, stderr, data }) => {
+              getCurrentWindow().setProgressBar(-1);
+              dispatch(clearFileTransfer());
               dispatch(
                 churnMtpBuffer({
                   deviceType: DEVICE_TYPE.mtp,
@@ -2570,17 +2572,7 @@ const mapDispatchToProps = (dispatch, _) =>
                   stderr,
                   data,
                   mtpMode,
-                  onSuccess: () => {
-                    getCurrentWindow().setProgressBar(-1);
-                    dispatch(clearFileTransfer());
-                    dispatch(
-                      listDirectory(
-                        { ...listDirectoryArgs },
-                        deviceType,
-                        getState
-                      )
-                    );
-                  },
+                  onSuccess: () => {},
                 })
               );
 

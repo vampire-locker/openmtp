@@ -16,6 +16,10 @@ import (
 const directoryTimeout = 120000
 
 func readDirectory(storageID uint32, fullPath string, skipHidden bool) ([]*mtpx.FileInfo, error) {
+	return readDirectoryByHandle(storageID, fullPath, skipHidden, 0)
+}
+
+func readDirectoryByHandle(storageID uint32, fullPath string, skipHidden bool, handle uint32) ([]*mtpx.FileInfo, error) {
 	started := time.Now()
 	log.Printf("directory read path=%q storage=%d", fullPath, storageID)
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
@@ -25,9 +29,13 @@ func readDirectory(storageID uint32, fullPath string, skipHidden bool) ([]*mtpx.
 	originalTimeout := dev.Timeout
 	defer func() { dev.Timeout = originalTimeout }()
 	dev.Timeout = directoryTimeout
-	folder, err := mtpx.GetObjectFromPath(dev, storageID, fullPath)
-	if err != nil {
-		return nil, err
+	folder := &mtpx.FileInfo{ObjectId: handle, IsDir: true, FullPath: fullPath}
+	if handle == 0 {
+		var err error
+		folder, err = mtpx.GetObjectFromPath(dev, storageID, fullPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !folder.IsDir {
 		return []*mtpx.FileInfo{folder}, nil

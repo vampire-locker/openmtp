@@ -360,43 +360,22 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 		return
 	}
 
-	var pInterface interface{}
-
-	ch := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-ch:
-				close(ch)
-
-				return
-			default:
-				if pInterface != nil {
-					switch v := pInterface.(type) {
-					case DownloadPreprocessContainer:
-						send_to_js.SendDownloadFilesPreprocess(sendToJsOnPreprocessPtr, v.fi)
-
-					case ProgressContainer:
-						send_to_js.SendTransferFilesProgress(sendToJsOnProgressPtr, v.pInfo)
-
-					default:
-						log.Panicln("unimplemented DownloadFiles.pInterface type")
-					}
-				}
-
-				time.Sleep(time.Millisecond * 500)
-			}
-		}
-	}()
-
+	// Keep callbacks synchronous and throttled. Sharing pInterface with a
+	// goroutine raced with progress writes and could emit stale events after done.
+	var lastUpdate time.Time
+	if len(i.Sources) > 0 {
+		send_to_js.SendDownloadFilesPreprocess(sendToJsOnPreprocessPtr, &mtpx.FileInfo{FullPath: i.Sources[0]})
+		lastUpdate = time.Now()
+	}
 	err = _downloadFiles(i.StorageId, i.Sources, i.Destination, i.PreprocessFiles,
 		func(fi *mtpx.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 
-			pInterface = DownloadPreprocessContainer{
-				fi: fi,
+			if time.Since(lastUpdate) >= 500*time.Millisecond {
+				send_to_js.SendDownloadFilesPreprocess(sendToJsOnPreprocessPtr, fi)
+				lastUpdate = time.Now()
 			}
 
 			return nil
@@ -406,8 +385,9 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
-			pInterface = ProgressContainer{
-				pInfo: p,
+			if p.Status == mtpx.Completed || time.Since(lastUpdate) >= 500*time.Millisecond {
+				send_to_js.SendTransferFilesProgress(sendToJsOnProgressPtr, p)
+				lastUpdate = time.Now()
 			}
 
 			return nil
@@ -415,12 +395,8 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, err)
 
-		ch <- true
-
 		return
 	}
-
-	ch <- true
 
 	send_to_js.SendTransferFilesDone(sendToJsOnDonePtr)
 }
