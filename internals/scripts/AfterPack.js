@@ -26,5 +26,5 @@ exports.default = async (context) => {
       break;
   }
 
-  return _promises;
+  return Promise.all(_promises);
 };

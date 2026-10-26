@@ -15,6 +15,7 @@
     "dev-kalam-ffi": "./ffi/kalam/native/scripts/build.sh && yarn dev",
     "package": "yarn build && electron-builder --config electron-builder-config.js build --publish never",
     "package-all": "yarn build && electron-builder --config electron-builder-config.js build -mwl --publish never",
+    "package-local-mac": "node scripts/package-local-mac.js",
     "package-mac": "yarn build && dotenv -- electron-builder --config electron-builder-config.js build --mac --publish never",
     "package-mac-no-verify": "yarn build-no-verify && electron-builder --config electron-builder-config.js build --mac --publish never",
     "package-mac-without-notarize": "yarn build && cross-env ELECTRON_NOTARIZE=NO electron-builder --config electron-builder-config.js build --mac --publish never",

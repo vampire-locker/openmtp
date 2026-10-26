@@ -118,6 +118,54 @@ $ "/path/to/OpenMTP.app/Contents/MacOS/OpenMTP" --remote-debugging-port=6363
       - [https://www.electron.build/code-signing.html](https://www.electron.build/code-signing.html)
       - [https://docs.codemagic.io/yaml-code-signing/signing-macos/#saving-the-api-key-to-environment-variables](https://docs.codemagic.io/yaml-code-signing/signing-macos/#saving-the-api-key-to-environment-variables)
 
+### One-command local macOS package
+
+After installing the project dependencies, run from the repository root:
+
+```sh
+yarn package-local-mac
+```
+
+Without a global Yarn installation, use the same entry point directly:
+
+```sh
+node scripts/package-local-mac.js
+```
+
+The script compiles the main process first, then the renderer (the main build clears `app/dist`), and packages for the running Node architecture (`arm64` or `x64`), checks that the packaged Kalam/libusb files match the input binaries, applies an ad-hoc signature, verifies it with `codesign --verify --deep --strict`, and creates a ZIP preserving the app bundle. On Node 17+, the compilation subprocess automatically enables the OpenSSL legacy provider required by this repository's loaders.
+
+It uses the installed Electron runtime from `node_modules/electron/dist`, requires no Apple Developer certificate, and does not notarize, publish, open, or install the app. Publishing configuration is disabled only for this local packaging invocation; the regular release configuration remains unchanged. If dependencies were installed with `--ignore-scripts`, first prepare Electron and the native Node modules:
+
+```sh
+node node_modules/electron/install.js
+node node_modules/electron-builder/out/cli/cli.js install-app-deps
+```
+
+To package already compiled and verified JS artifacts without rebuilding them:
+
+```sh
+yarn package-local-mac --skip-build
+# equivalent:
+node scripts/package-local-mac.js --skip-build
+```
+
+`--skip-build` checks that required artifacts exist; it does not check their freshness. Use the default command after changing application JS. Neither command runs tests or lint; those remain separate validation steps. Kalam Go sources are not recompiled by this script: it packages the native binaries under `build/mac/bin`. If those sources change, rebuild the appropriate native binary first using [the native build instructions](ffi/kalam/native/README.md).
+
+Outputs on Apple Silicon:
+
+- `dist/local-mac/mac-arm64/OpenMTP.app`
+- `dist/local-mac/openmtp-<version>-arm64-local.zip`
+
+On Intel, the app directory is `dist/local-mac/mac`, and the ZIP uses `x64`. The running Node architecture determines the target; use an arm64 Node installation on Apple Silicon when packaging the arm64 fix. The included large-directory native fix has been rebuilt for the macOS 26+ arm64 `kalam-seg5` variant; packaging another architecture does not rebuild or validate its native code.
+
+To install, quit all OpenMTP instances, back up the existing app, and drag the generated `.app` into `/Applications`, replacing the old copy. The script never performs this replacement. Ad-hoc signing is for local use, not a substitute for signing and notarization for public distribution.
+
+The packaging configuration has its own lightweight checks:
+
+```sh
+node tests/package-local-mac.js
+```
+
 ### Packaging (locally) and Publishing
 
 Set up the _code signing_ to build, package (locally) and publish the app.

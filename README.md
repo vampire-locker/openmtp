@@ -123,6 +123,15 @@ Do check out the Go package which I've written to build Kalam Kernel: [github.co
 
 Building from source, packaging, publishing and debugging are documented in [DEVELOPMENT.md](DEVELOPMENT.md 'DEVELOPMENT.md').
 
+For a local macOS app with ad-hoc signing (no Apple Developer certificate required):
+
+```sh
+yarn package-local-mac
+```
+
+See [one-command local packaging](DEVELOPMENT.md#one-command-local-macos-package) for prerequisites, output paths, and reusing an existing build.
+
+
 ### Troubleshooting
 
 #### OpenMTP doesn't launch or doesn't work on my Mac
